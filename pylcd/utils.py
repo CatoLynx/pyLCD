@@ -19,11 +19,19 @@ def nibble_to_mask(backend, nibble, data):
 	mask = bool_list_to_mask(l)
 	return mask
 
-def value_to_nibbles(value):
+def value_to_byte(value):
 	assert value >= 0
 	assert value <= 255
 	b = bin(value)[2:10]
 	b = "0" * (8 - len(b)) + b
 	bits = tuple([bit == "1" for bit in list(b)])
-	nibbles = (bits[:4], bits[4:])
-	return nibbles
+	return bits
+
+def value_to_nibbles(value):
+	byte = value_to_byte(value)
+	return (byte[:4], byte[4:])
+
+def byte_to_value(byte):
+	b = "".join([str(int(item)) for item in byte])
+	value = int(b, 2)
+	return value

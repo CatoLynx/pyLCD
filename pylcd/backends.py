@@ -41,6 +41,9 @@ class K8055Backend:
 		mask = nibble_to_mask(nibble, data = data)
 		self.board.WriteAllDigital(mask)
 	
+	def write_byte(self, byte, data = True):
+		return self.write_nibble(byte, data = data)
+	
 	def set_brightness(self, level):
 		assert level >= 0
 		assert level <= 1023
@@ -91,6 +94,11 @@ class GPIOBackend:
 		self.gpio.digitalWrite(self.PIN_D6, nibble[1])
 		self.gpio.digitalWrite(self.PIN_D7, nibble[0])
 	
+	def write_byte(self, byte, data = True):
+		self.gpio.digitalWrite(self.PIN_RS, data)
+		for i in range(8):
+			self.gpio.digitalWrite(getattr(self, "PIN_D%i" % i), nibble[i])
+	
 	def set_brightness(self, level):
 		assert level >= 0
 		assert level <= 1023
@@ -131,6 +139,9 @@ class ArduinoBackend:
 	
 	def write_nibble(self, nibble, data = True):
 		self.serial.write("".join(chr(b) for b in [self.PIN_RS, int(data), self.PIN_D4, int(nibble[3]), self.PIN_D5, int(nibble[2]), self.PIN_D6, int(nibble[1]), self.PIN_D7, int(nibble[0])]))
+	
+	def write_byte(self, byte, data = True):
+		raise NotImplementedError
 	
 	def set_brightness(self, level):
 		assert level >= 0
@@ -200,6 +211,9 @@ class DebugBackend:
 		self.output_states[self.PIN_D7][1] = nibble[0]
 		self._update()
 	
+	def write_byte(self, byte, data = True):
+		raise NotImplementedError
+	
 	def set_brightness(self, level):
 		assert level >= 0
 		assert level <= 1023
@@ -233,6 +247,9 @@ class DummyBackend:
 		pass
 	
 	def write_nibble(self, nibble, data = True):
+		pass
+	
+	def write_byte(self, byte, data = True):
 		pass
 	
 	def set_brightness(self, level):
