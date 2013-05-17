@@ -81,6 +81,7 @@ class GPIOBackend:
 	
 	def pulse(self, output):
 		self.high(output)
+		time.sleep(0.001)
 		self.low(output)
 	
 	def all_low(self):
@@ -97,7 +98,7 @@ class GPIOBackend:
 	def write_byte(self, byte, data = True):
 		self.gpio.digitalWrite(self.PIN_RS, data)
 		for i in range(8):
-			self.gpio.digitalWrite(getattr(self, "PIN_D%i" % i), nibble[i])
+			self.gpio.digitalWrite(getattr(self, "PIN_D%i" % i), byte[i])
 	
 	def set_brightness(self, level):
 		assert level >= 0

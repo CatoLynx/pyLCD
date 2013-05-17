@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2013 Julian Metzler
 # See the LICENSE file for the full license.
-# This is a rather chaotic collection of examples. Use at your own risk :-)
+
+"""
+This is a rather chaotic collection of examples. Use at your own risk :-)
+"""
 
 import argparse
 import os

@@ -17,14 +17,14 @@ from .utils import *
 class Display:
 	CONTROL_CHARACTERS = (0x0D, 0x18, 0x1B, 0x7F)
 	
-	def __init__(self, backend, pinmap, charmap = None, lines = 2, columns = 16, characters = 40, backend_args = (), backend_kwargs = {}, skip_init = False, enable_backlight = True, debug = False):
+	def __init__(self, backend, pinmap, charmap = None, lines = 2, columns = 16, characters = 80, backend_args = (), backend_kwargs = {}, skip_init = False, enable_backlight = True, debug = False):
 		self.backend = backend(self, pinmap, *backend_args, **backend_kwargs)
 		self.brightness = 0
 		self.debug = debug
 		self.line_count = lines
 		self.column_count = columns
 		self.character_count = characters
-		self.max_chars_per_line = self.character_count / 2 if lines == 4 else self.character_count
+		self.max_chars_per_line = self.character_count / lines
 		self.lines = ()
 		self.cursor_pos = [0, 0]
 		self.set_brightness = self.backend.set_brightness
@@ -165,9 +165,9 @@ class Display:
 		if line == 1:
 			_line = 0xC0
 		elif line == 2:
-			_line = 0x94
+			_line = 0x90
 		elif line == 3:
-			_line = 0xD4
+			_line = 0xD0
 		else:
 			line = 0
 			_line = 0x80
@@ -337,8 +337,8 @@ class DisplayUI:
 		self.line_buffer += [""] * (self.display.line_count - len(self.line_buffer))
 		self.v_scroll_pos = min(len(self.line_buffer) - self.display.line_count, self.v_scroll_pos)
 		lines = self.line_buffer[self.v_scroll_pos:self.v_scroll_pos + self.display.line_count]
-		self.stored_lines = tuple([line[:self.display.max_chars_per_line].ljust(self.display.max_chars_per_line) for line in lines])
-		self.displayed_lines = tuple([line[:self.display.max_chars_per_line].ljust(self.display.max_chars_per_line) for line in lines])
+		self.stored_lines = tuple([line[:self.display.column_count].ljust(self.display.column_count) if i < 2 and self.display.line_count > 2 else line[:self.display.max_chars_per_line].ljust(self.display.max_chars_per_line) for i, line in enumerate(lines)])
+		self.displayed_lines = tuple([line[:self.display.column_count].ljust(self.display.column_count) if i < 2 and self.display.line_count > 2 else line[:self.display.max_chars_per_line].ljust(self.display.max_chars_per_line) for i, line in enumerate(lines)])
 		self.viewport = tuple([self._shift(line, -self.h_scroll_pos)[:self.display.column_count] for line in self.displayed_lines])
 	
 	def redraw(self):

@@ -58,20 +58,25 @@ class Display:
 					# print "Writing page %ix%i: %s" % (x, y, bin(byte_to_value(self.content[x][y])))
 					self.write_page(byte_to_value(self.content[x][y]), x, y, commit = True)
 		self.old_content = deepcopy(self.content)
+		self.set_cursor_position(0, 0)
 	
 	def write_value(self, value, chip = None, data = True):
 		if chip is None:
 			chip = self.current_chip
 		byte = value_to_byte(value)
 		self.backend.high(getattr(self.backend, "PIN_CS%i" % chip))
-		if data:
-			self.backend.high(self.backend.PIN_RS)
 		self.write_byte(byte, data = data)
 		self.backend.pulse(self.backend.PIN_E)
 		self.backend.low(getattr(self.backend, "PIN_CS%i" % chip))
 	
 	def initialize(self):
-		pass
+		self.reset()
+		self.set_start_line(0)
+		self.set_display_enable(True)
+	
+	def reset(self):
+		self.backend.low(self.backend.PIN_RST)
+		self.backend.high(self.backend.PIN_RST)
 	
 	def clear(self):
 		self.content = [[[0 for z in range(8)] for x in range(self.pages)] for y in range(self.columns)]
@@ -124,7 +129,7 @@ class Display:
 			self.write_value(value)
 			self.set_cursor_position(column + 1, page * 8, internal = True)
 		else:
-			self.content[row][page] = [int(item) for item in value_to_byte(value)]
+			self.content[column][page] = [int(item) for item in value_to_byte(value)]
 			if self.auto_commit:
 				self.commit()
 	
@@ -149,9 +154,17 @@ class Display:
 			start_y, stop_y = stop_y, start_y
 		
 		m = float(stop_y - start_y) / float(stop_x - start_x)
+		old_y = start_y
 		for x in range(start_x, stop_x + 1):
-			y = int(round(m * x + start_y))
+			y = int(round(m * (x - start_x) + start_y))
+			if y >= old_y:
+				diff_range = range(old_y, y + 1)
+			else:
+				diff_range = range(y, old_y + 1)
+			for i in diff_range:
+				self.draw_pixel(x, i, clear = clear)
 			self.draw_pixel(x, y, clear = clear)
+			old_y = y
 	
 	def draw_rectangle(self, start_x, start_y, stop_x, stop_y, fill = False, clear = False):
 		x_range = range(start_x, stop_x + 1) if stop_x >= start_x else range(stop_x, start_x + 1)
@@ -178,39 +191,39 @@ class Display:
 		lambdas = []
 		for i, item in enumerate(radiuses):
 			next = radiuses[i + 1] if i < len(radiuses) - 1 else radiuses[0]
-			m = (float(next) - float(item)) / float(interpolation_step_size)
-			exec("_tmp = lambda x: %f * x + %i" % (m, item))
+			# m = (float(next) - float(item)) / float(interpolation_step_size)
+			# exec("_tmp = lambda x: %f * x + %i" % (m, item))
+			b = math.log(float(next) / float(item)) / float(interpolation_step_size)
+			# print "_tmp = lambda x: %f * math.e ** (%.10f * x)" % (item, b)
+			exec("_tmp = lambda x: %f * math.e ** (%.10f * x)" % (item, b))
 			lambdas.append(_tmp)
 		
 		for n, radius in enumerate(radiuses):
 			for s in range(interpolation_step_size):
 				complete_radiuses[n * interpolation_step_size + s] = lambdas[n](s)
 		
+		# print "\n".join([str(item) for item in complete_radiuses])
+		
 		for a, radius in enumerate(complete_radiuses):
 			if a < start or a > stop:
 				continue
-			if a == 0:
-				x, y = center_x, int(round(center_y - radius))
-			elif a == 90:
-				x, y = int(round(center_x + radius)), center_y
-			elif a == 180:
-				x, y = center_x, int(round(center_y + radius))
-			elif a == 270:
-				x, y = int(round(center_x - radius)), center_y
-			else:
-				mod_x = int(round(math.sin(math.radians(a)) * radius))
-				mod_y = int(round(math.cos(math.radians(a)) * radius))
-				x, y = center_x + mod_x, center_y - mod_y
+			mod_x = int(round(math.sin(math.radians(a)) * radius))
+			mod_y = int(round(math.cos(math.radians(a)) * radius))
+			x, y = center_x + mod_x, center_y - mod_y
 			
-			self.draw_pixel(x, y, clear = clear)
+			if fill:
+				self.draw_line(center_x, center_y, x, y, clear = clear)
+			else:
+				self.draw_pixel(x, y, clear = clear)
 	
-	def draw_image(self, image, x, y, width = None, height = None, clear = False):
+	def draw_image(self, image, x, y, width = None, height = None, condition = 'alpha > 127', clear = False):
 		if not IMAGE:
 			raise RuntimeError("PIL is required to display images, but it is not installed on your system.")
 		if isinstance(image, Image.Image):
 			im = image
 		else:
 			im = Image.open(image)
+		im = im.convert("RGBA")
 		pixels = im.load()
 		im_width, im_height = im.size
 		if width or height:
@@ -236,12 +249,10 @@ class Display:
 		
 		for im_x in range(im_width):
 			for im_y in range(im_height):
-				r, g, b, a = pixels[im_x, im_y]
-				draw = a > 127
-				if draw and not clear:
-					self.draw_pixel(x + im_x, y + im_y, clear = False)
-				elif draw and clear:
-					self.draw_pixel(x + im_x, y + im_y, clear = True)
+				red, green, blue, alpha = pixels[im_x, im_y]
+				exec("draw = %s" % condition.replace(";", ""))
+				if draw:
+					self.draw_pixel(x + im_x, y + im_y, clear = clear)
 	
 	def draw_text(self, text, x, y, size = 10, font = "/usr/share/fonts/truetype/freefont/FreeSans.ttf", clear = False):
 		if not IMAGE:

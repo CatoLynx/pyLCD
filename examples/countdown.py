@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2013 Julian Metzler
 # See the LICENSE file for the full license.
-# Script to display a countdown to a specified time
+
+"""
+Script to display a countdown to a specified time
+"""
 
 import argparse
 import datetime
