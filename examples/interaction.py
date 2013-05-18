@@ -241,11 +241,11 @@ def run():
 	parser.add_argument('-a', '--align', choices = ['left', 'center', 'right'], default = 'left')
 	args = parser.parse_args()
 	
-	display = pylcd.hd44780.Display(backend = pylcd.GPIOBackend, pinmap = PINMAP, charmap = CHARMAP, lines = 2, columns = 16, skip_init = args.skip_init, debug = False)
+	display = pylcd.hd44780.Display(backend = pylcd.GPIOBackend, pinmap = PINMAP, charmap = CHARMAP, lines = 4, columns = 16, skip_init = args.skip_init, debug = False)
 	display.set_display_enable(cursor = args.cursor, cursor_blink = args.cursor_blink)
 	display.clear()
 	display.home()
-	ui = pylcd.hd44780.DisplayUI(display, pylcd.GPIOInput, input_kwargs = {'pinmap': INPUT_PINMAP}, debug = True)
+	ui = pylcd.hd44780.DisplayUI(display, pylcd.SystemInput, debug = True)
 	ui.message(chr(0) + " 2013 Mezgrman\nwww.mezgrman.de", align = 'center', wrap = False, duration = 2.5)
 	
 	try:

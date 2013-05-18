@@ -10,6 +10,7 @@ Script to display a countdown to a specified time
 import argparse
 import datetime
 import pylcd
+import re
 import time
 from string import Template
 
@@ -22,6 +23,49 @@ PINMAP = {
 	'D6': 9,
 	'D7': 11,
 	'LED': 18,
+}
+
+CHARMAP = {
+	0: (
+		0b00000,
+		0b10000,
+		0b01000,
+		0b00100,
+		0b00010,
+		0b00001,
+		0b00000,
+		0b00000,
+	),
+	1: (
+		0b11111,
+		0b00000,
+		0b00000,
+		0b00000,
+		0b00000,
+		0b00000,
+		0b00000,
+		0b00000,
+	),
+	2: (
+		0b00000,
+		0b10001,
+		0b01110,
+		0b00000,
+		0b00000,
+		0b00000,
+		0b00000,
+		0b00000,
+	),
+	3: (
+		0b00111,
+		0b00100,
+		0b10100,
+		0b00111,
+		0b00100,
+		0b10100,
+		0b00111,
+		0b00000,
+	),
 }
 
 class DeltaTemplate(Template):
@@ -68,7 +112,8 @@ def main():
 	parser.add_argument('-a', '--align', choices = ['left', 'center', 'right'], default = 'center')
 	parser.add_argument('-e', '--event', help = "The name of the event to count down to.")
 	args = parser.parse_args()
-	display = pylcd.hd44780.Display(backend = pylcd.DummyBackend, pinmap = PINMAP, lines = 2, columns = 16, debug = False)
+	args.format = re.sub(r"\\(?P<id>\d+)", lambda match: chr(int(match.groupdict()['id'])), args.format)
+	display = pylcd.hd44780.Display(backend = pylcd.GPIOBackend, pinmap = PINMAP, charmap = CHARMAP, lines = 4, columns = 16, debug = False)
 	display.clear()
 	display.home()
 	ui = pylcd.hd44780.DisplayUI(display, pylcd.NoInput, debug = True)
