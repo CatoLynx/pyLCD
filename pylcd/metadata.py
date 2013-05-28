@@ -2,7 +2,7 @@
 # See the LICENSE file for the full license.
 
 name = "pyLCD"
-version = "1.1.0"
+version = "1.1.1"
 description = "A library for controlling LCDs on various hardware backends"
 license = "AGPLv3"
 author = "Julian Metzler"

@@ -140,139 +140,6 @@ class Display:
 		self.content[column][page] = [int(item) for item in value_to_byte(value)]
 		if self.auto_commit:
 			self.commit()
-	
-	def draw_pixel(self, x, y, clear = False):
-		if x >= self.columns or x < 0:
-			return
-		if y >= self.rows or y < 0:
-			return
-		page, pos = divmod(y, 8)
-		self.content[x][page][pos] = int(not clear)
-		if self.auto_commit:
-			self.commit()
-	
-	def draw_line(self, start_x, start_y, stop_x, stop_y, clear = False):
-		if start_x == stop_x:
-			y_range = range(start_y, stop_y + 1) if stop_y >= start_y else range(stop_y, start_y + 1)
-			for y in y_range:
-				self.draw_pixel(start_x, y, clear = clear)
-			return
-		elif start_x > stop_x:
-			start_x, stop_x = stop_x, start_x
-			start_y, stop_y = stop_y, start_y
-		
-		m = float(stop_y - start_y) / float(stop_x - start_x)
-		old_y = start_y
-		for x in range(start_x, stop_x + 1):
-			y = int(round(m * (x - start_x) + start_y))
-			if y >= old_y:
-				diff_range = range(old_y, y + 1)
-			else:
-				diff_range = range(y, old_y + 1)
-			for i in diff_range:
-				self.draw_pixel(x, i, clear = clear)
-			self.draw_pixel(x, y, clear = clear)
-			old_y = y
-	
-	def draw_rectangle(self, start_x, start_y, stop_x, stop_y, fill = False, clear = False):
-		x_range = range(start_x, stop_x + 1) if stop_x >= start_x else range(stop_x, start_x + 1)
-		y_range = range(start_y + 1, stop_y) if stop_y >= start_y else range(stop_y + 1, start_y)
-		for x in x_range:
-			if fill:
-				for y in y_range:
-					self.draw_pixel(x, y, clear = clear)
-			else:
-				self.draw_pixel(x, start_y, clear = clear)
-				self.draw_pixel(x, stop_y, clear = clear)
-		
-		if not fill:
-			for y in y_range:
-				self.draw_pixel(start_x, y, clear = clear)
-				self.draw_pixel(stop_x, y, clear = clear)
-	
-	def draw_circle(self, center_x, center_y, radiuses, start = 0, stop = 360, fill = False, clear = False):
-		RESOLUTION = 360
-		if type(radiuses) not in [list, tuple]:
-			radiuses = [radiuses]
-		interpolation_step_size = RESOLUTION / len(radiuses)
-		complete_radiuses = [0.0] * RESOLUTION
-		lambdas = []
-		for i, item in enumerate(radiuses):
-			next = radiuses[i + 1] if i < len(radiuses) - 1 else radiuses[0]
-			# m = (float(next) - float(item)) / float(interpolation_step_size)
-			# exec("_tmp = lambda x: %f * x + %i" % (m, item))
-			b = math.log(float(next) / float(item)) / float(interpolation_step_size)
-			# print "_tmp = lambda x: %f * math.e ** (%.10f * x)" % (item, b)
-			exec("_tmp = lambda x: %f * math.e ** (%.10f * x)" % (item, b))
-			lambdas.append(_tmp)
-		
-		for n, radius in enumerate(radiuses):
-			for s in range(interpolation_step_size):
-				complete_radiuses[n * interpolation_step_size + s] = lambdas[n](s)
-		
-		# print "\n".join([str(item) for item in complete_radiuses])
-		
-		for a, radius in enumerate(complete_radiuses):
-			if a < start or a > stop:
-				continue
-			mod_x = int(round(math.sin(math.radians(a)) * radius))
-			mod_y = int(round(math.cos(math.radians(a)) * radius))
-			x, y = center_x + mod_x, center_y - mod_y
-			
-			if fill:
-				self.draw_line(center_x, center_y, x, y, clear = clear)
-			else:
-				self.draw_pixel(x, y, clear = clear)
-	
-	def draw_image(self, image, x, y, width = None, height = None, greyscale = False, condition = 'alpha > 127', clear = False):
-		if not IMAGE:
-			raise RuntimeError("PIL is required to display images, but it is not installed on your system.")
-		if isinstance(image, Image.Image):
-			im = image
-		else:
-			im = Image.open(image)
-		if greyscale:
-			im = im.convert("L")
-		im = im.convert("RGBA")
-		pixels = im.load()
-		im_width, im_height = im.size
-		if width or height:
-			width = width if width is not None else im_width
-			height = height if height is not None else im_height
-			im = im.resize((width, height), Image.ANTIALIAS)
-			im_width, im_height = im.size
-			pixels = im.load()
-		
-		if x == 'left':
-			x = 0
-		elif x == 'center':
-			x = (self.columns - im_width) / 2
-		elif x == 'right':
-			x = self.columns - im_width
-		
-		if y == 'top':
-			y = 0
-		elif y == 'middle':
-			y = (self.rows - im_height) / 2
-		elif y == 'bottom':
-			y = self.rows - im_height
-		
-		for im_x in range(im_width):
-			for im_y in range(im_height):
-				red, green, blue, alpha = pixels[im_x, im_y]
-				exec("draw = %s" % condition.replace(";", ""))
-				if draw:
-					self.draw_pixel(x + im_x, y + im_y, clear = clear)
-	
-	def draw_text(self, text, x, y, size = 10, font = "/usr/share/fonts/truetype/freefont/FreeSans.ttf", clear = False):
-		if not IMAGE:
-			raise RuntimeError("PIL is required to display images, but it is not installed on your system.")
-		font = ImageFont.truetype(font, size)
-		size = font.getsize(text)
-		image = Image.new('RGBA', size, (0, 0, 0, 0))
-		draw = ImageDraw.Draw(image)
-		draw.text((0, 0), text, (0, 0, 0), font = font)
-		self.draw_image(image, x, y, clear = clear)
 
 class SimulatedDisplay(Display):
 	def __init__(self, *args, **kwargs):
@@ -310,3 +177,281 @@ class SimulatedDisplay(Display):
 			self.content[column][page] = [int(item) for item in value_to_byte(value)]
 			if self.auto_commit:
 				self.commit()
+
+class DisplayDraw:
+	def __init__(self, display, auto_commit = False):
+		self.display = display
+		self.auto_commit = auto_commit
+	
+	def PATTERN_SOLID(self, x, y):
+		return True
+	
+	def PATTERN_DOTS(self, x, y, distance = 2, x_offset = 0, y_offset = 0):
+		return divmod(x - x_offset, distance)[1] == divmod(y - y_offset, distance)[1] == 0
+	
+	def PATTERN_HORIZONTAL_STRIPES(self, x, y, distance = 2, offset = 0):
+		return bool(divmod(y, distance)[1])
+	
+	def PATTERN_VERTICAL_STRIPES(self, x, y, distance = 2, offset = 0):
+		return bool(divmod(x, distance)[1])
+	
+	def PATTERN_CROSS_STRIPES(self, x, y, distance = 2, x_offset = 0, y_offset = 0):
+		return not divmod(x - x_offset, distance)[1] == divmod(y - y_offset, distance)[1] == 0
+	
+	def PATTERN_EMPTY(self, x, y):
+		return False
+	
+	def _polar_to_rect(self, x, y, angle, length):
+		w = int(round(math.sin(math.radians(angle)) * length))
+		h = int(round(math.cos(math.radians(angle)) * length))
+		stop_x = x + w
+		stop_y = y - h
+		return stop_x, stop_y
+	
+	def get_pixel(self, x, y):
+		if x >= self.display.columns or x < 0:
+			return
+		if y >= self.display.rows or y < 0:
+			return
+		page, pos = divmod(y, 8)
+		return bool(self.display.content[x][page][pos])
+	
+	def pixel(self, x, y, clear = False):
+		if x >= self.display.columns or x < 0:
+			return
+		if y >= self.display.rows or y < 0:
+			return
+		page, pos = divmod(y, 8)
+		self.display.content[x][page][pos] = int(not clear)
+	
+	def line(self, start_x, start_y, stop_x, stop_y, clear = False):
+		if start_x == stop_x:
+			y_range = range(start_y, stop_y + 1) if stop_y >= start_y else range(stop_y, start_y + 1)
+			for y in y_range:
+				self.pixel(start_x, y, clear = clear)
+			return
+		elif start_x > stop_x:
+			start_x, stop_x = stop_x, start_x
+			start_y, stop_y = stop_y, start_y
+		
+		m = float(stop_y - start_y) / float(stop_x - start_x)
+		old_y = start_y
+		for x in range(start_x, stop_x + 1):
+			y = int(round(m * (x - start_x) + start_y))
+			if y >= old_y:
+				diff_range = range(old_y + 1, y)
+			else:
+				diff_range = range(y + 1, old_y)
+			for i in diff_range:
+				self.pixel(x, i, clear = clear)
+			self.pixel(x, y, clear = clear)
+			old_y = y
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def polar_line(self, x, y, angle, length, clear = False):
+		stop_x, stop_y = self._polar_to_rect(x, y, angle, length)
+		self.line(x, y, stop_x, stop_y, clear = clear)
+	
+	def rectangle(self, start_x, start_y, stop_x, stop_y, fill = False, clear = False):
+		x_range = range(start_x - 1, stop_x + 1) if stop_x >= start_x else range(stop_x - 1, start_x + 1)
+		y_range = range(start_y - 1, stop_y + 1) if stop_y >= start_y else range(stop_y - 1, start_y + 1)
+		for x in x_range:
+			if fill:
+				for y in y_range:
+					self.pixel(x, y, clear = clear)
+			else:
+				self.pixel(x, start_y, clear = clear)
+				self.pixel(x, stop_y, clear = clear)
+		
+		if not fill:
+			for y in y_range:
+				self.pixel(start_x, y, clear = clear)
+				self.pixel(stop_x, y, clear = clear)
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def circle(self, center_x, center_y, radiuses, start = 0, stop = 360, fill = None, fill_kwargs = {}, clear = False):
+		RESOLUTION = 360
+		if type(radiuses) not in [list, tuple]:
+			radiuses = [radiuses]
+		interpolation_step_size = RESOLUTION / len(radiuses)
+		complete_radiuses = [0.0] * RESOLUTION
+		lambdas = []
+		for i, item in enumerate(radiuses):
+			next = radiuses[i + 1] if i < len(radiuses) - 1 else radiuses[0]
+			# m = (float(next) - float(item)) / float(interpolation_step_size)
+			# exec("_tmp = lambda x: %f * x + %i" % (m, item))
+			b = math.log(float(next) / float(item)) / float(interpolation_step_size)
+			# print "_tmp = lambda x: %f * math.e ** (%.10f * x)" % (item, b)
+			exec("_tmp = lambda x: %f * math.e ** (%.10f * x)" % (item, b))
+			lambdas.append(_tmp)
+		
+		for n, radius in enumerate(radiuses):
+			for s in range(interpolation_step_size):
+				complete_radiuses[n * interpolation_step_size + s] = lambdas[n](s)
+		
+		# print "\n".join([str(item) for item in complete_radiuses])
+		
+		for a, radius in enumerate(complete_radiuses):
+			if a < start or a > stop:
+				continue
+			mod_x = int(round(math.sin(math.radians(a)) * radius))
+			mod_y = int(round(math.cos(math.radians(a)) * radius))
+			x, y = center_x + mod_x, center_y - mod_y
+			
+			self.pixel(x, y, clear = clear)
+		
+		if fill:
+			if fill is True:
+				fill = self.PATTERN_SOLID
+			self.fill_area(center_x, center_y, fill, fill_kwargs)
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def image(self, img, x, y, width = None, height = None, angle = 0, greyscale = False, condition = 'alpha > 127', clear = False):
+		if not IMAGE:
+			raise RuntimeError("PIL is required to display images, but it is not installed on your system.")
+		if isinstance(img, Image.Image):
+			im = img
+		else:
+			im = Image.open(img)
+		if greyscale:
+			im = im.convert("L")
+		im = im.convert("RGBA")
+		
+		angle = divmod(angle, 360)[1]
+		if angle:
+			im = im.rotate(angle, expand = True)
+		
+		pixels = im.load()
+		im_width, im_height = im.size
+		if width or height:
+			width = width if width is not None else im_width
+			height = height if height is not None else im_height
+			im = im.resize((width, height), Image.ANTIALIAS)
+			im_width, im_height = im.size
+			pixels = im.load()
+		
+		x_min, x_max, y_min, y_max = 0, self.display.columns - 1, 0, self.display.rows - 1
+		
+		if type(x) in [list, tuple]:
+			x, x_min, x_max = x
+		
+		if type(y) in [list, tuple]:
+			y, y_min, y_max = y
+		
+		if x == 'left':
+			x = x_min
+		elif x == 'center':
+			x = x_min + (x_max - x_min - im_width) / 2
+		elif x == 'right':
+			x = x_min + x_max - im_width
+		
+		if y == 'top':
+			y = y_min
+		elif y == 'middle':
+			y = y_min + (y_max - y_min - im_height) / 2
+		elif y == 'bottom':
+			y = y_min + y_max - im_height
+		
+		for im_x in range(im_width):
+			for im_y in range(im_height):
+				red, green, blue, alpha = pixels[im_x, im_y]
+				exec("draw = %s" % condition.replace(";", "").replace("\n", ""))
+				if draw:
+					self.pixel(x + im_x, y + im_y, clear = clear)
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def text(self, text, x, y, size = 10, font = "/usr/share/fonts/truetype/freefont/FreeSans.ttf", angle = 0, clear = False):
+		if not IMAGE:
+			raise RuntimeError("PIL is required to display images, but it is not installed on your system.")
+		font = ImageFont.truetype(font, size)
+		size = font.getsize(text)
+		image = Image.new('RGBA', size, (0, 0, 0, 0))
+		draw = ImageDraw.Draw(image)
+		draw.text((0, 0), text, (0, 0, 0), font = font)
+		self.image(image, x, y, angle = angle, clear = clear)
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def fill_screen(self, pattern, pattern_kwargs = {}):
+		for x in range(self.display.columns):
+			for y in range(self.display.rows):
+				self.pixel(x, y, not pattern(x, y, **pattern_kwargs))
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def fill_area(self, x, y, pattern, pattern_kwargs = {}):
+		queue = []
+		drawing_queue = []
+		stop_color = not self.get_pixel(x, y)
+		queue.append((x, y))
+		while queue:
+			x, y = queue.pop()
+			if x < 0 or x > self.display.columns or y < 0 or y > self.display.rows:
+				continue
+			if (x, y) in drawing_queue:
+				continue
+			current_color = self.get_pixel(x, y)
+			if self.get_pixel(x, y) != stop_color:
+				drawing_queue.append((x, y))
+				queue.append((x, y + 1))
+				queue.append((x, y - 1))
+				queue.append((x + 1, y))
+				queue.append((x - 1, y))
+		
+		MIN_X = min([item[0] for item in drawing_queue])
+		MIN_Y = min([item[1] for item in drawing_queue])
+		MAX_X = max([item[0] for item in drawing_queue])
+		MAX_Y = max([item[1] for item in drawing_queue])
+		
+		for x, y in drawing_queue:
+			color = pattern(x - MIN_X, y - MIN_Y, **pattern_kwargs)
+			self.pixel(x, y, not color)
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def analog_clock(self, x, y, size, hour = None, minute = None, second = None, has_lines = False, fill = False, clear = False):
+		self.circle(x, y, size, fill = fill, clear = clear)
+		
+		if has_lines:
+			for i in range(12):
+				start_x, start_y = self._polar_to_rect(x, y, (i * (360.0 / 12.0)), size * 0.85)
+				self.polar_line(start_x, start_y, (i * (360.0 / 12.0)), size * 0.12, clear = fill != clear)
+		
+		if hour is not None:
+			hour = divmod(hour, 12)[1] * 5
+			if minute is not None:
+				hour += (divmod(minute, 60)[1] / 60.0) * 5
+			self.polar_line(x, y, ((hour / 60.0) * 360.0), size * 0.55, clear = fill != clear)
+		
+		if minute is not None:
+			minute = divmod(minute, 60)[1]
+			if second is not None:
+				minute += (divmod(second, 60)[1] / 60.0)
+			self.polar_line(x, y, ((minute / 60.0) * 360.0), size * 0.75, clear = fill != clear)
+		
+		if second is not None:
+			second = divmod(second, 60)[1]
+			self.polar_line(x, y, ((second / 60.0) * 360.0), size * 0.85, clear = fill != clear)
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def function_plot(self, func, left_x, right_x, base_y, y_scale, min_x, max_x, clear = False):
+		x_step = float(max_x - min_x) / float(right_x - left_x)
+		for i in range(right_x - left_x + 1):
+			x_val = min_x + x_step * i
+			self.pixel(left_x + i, base_y - int(round(func(x_val) * y_scale)), clear = clear)
+		
+		if self.auto_commit:
+			self.display.commit()
