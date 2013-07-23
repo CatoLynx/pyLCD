@@ -6,11 +6,13 @@
 Library for KS0108 compatible graphical LCDs
 """
 
+import json
 import math
 import os
 import re
 import time
 import warnings
+import PyQRNative as qr
 
 from copy import deepcopy
 try:
@@ -255,8 +257,8 @@ class DisplayDraw:
 		self.line(x, y, stop_x, stop_y, clear = clear)
 	
 	def rectangle(self, start_x, start_y, stop_x, stop_y, fill = False, clear = False):
-		x_range = range(start_x - 1, stop_x + 1) if stop_x >= start_x else range(stop_x - 1, start_x + 1)
-		y_range = range(start_y - 1, stop_y + 1) if stop_y >= start_y else range(stop_y - 1, start_y + 1)
+		x_range = range(start_x, stop_x + 1) if stop_x >= start_x else range(stop_x, start_x + 1)
+		y_range = range(start_y, stop_y + 1) if stop_y >= start_y else range(stop_y, start_y + 1)
 		for x in x_range:
 			if fill:
 				for y in y_range:
@@ -349,14 +351,14 @@ class DisplayDraw:
 		elif x == 'center':
 			x = x_min + (x_max - x_min - im_width) / 2
 		elif x == 'right':
-			x = x_min + x_max - im_width
+			x = x_min + x_max - im_width + 1
 		
 		if y == 'top':
 			y = y_min
 		elif y == 'middle':
 			y = y_min + (y_max - y_min - im_height) / 2
 		elif y == 'bottom':
-			y = y_min + y_max - im_height
+			y = y_min + y_max - im_height + 1
 		
 		for im_x in range(im_width):
 			for im_y in range(im_height):
@@ -369,14 +371,49 @@ class DisplayDraw:
 			self.display.commit()
 	
 	def text(self, text, x, y, size = 10, font = "/usr/share/fonts/truetype/freefont/FreeSans.ttf", angle = 0, clear = False):
-		if not IMAGE:
-			raise RuntimeError("PIL is required to display images, but it is not installed on your system.")
-		font = ImageFont.truetype(font, size)
-		size = font.getsize(text)
+		truetype = font.lower().endswith(".ttf")
+		if truetype:
+			if not IMAGE:
+				raise RuntimeError("PIL is required to display text using TrueType fonts, but it is not installed on your system.")
+			font = ImageFont.truetype(font, size)
+			size = font.getsize(text)
+		else:
+			if divmod(angle, 360)[1] != 0:
+				raise RuntimeError("Text can't be rotated if using a non-TrueType font.")
+			try:
+				with open(font, 'r') as f:
+					font_data = json.loads(f.read())
+			except (IOError, ValueError):
+				raise RuntimeError("Failed to load font.")
+			characters = [font_data['characters'].get(char, font_data['characters']['dummy']) for char in text]
+			width = sum([max([len(line) for line in char]) for char in characters])
+			height = max([len(char) for char in characters])
+			size = (width, height)
+		
 		image = Image.new('RGBA', size, (0, 0, 0, 0))
 		draw = ImageDraw.Draw(image)
-		draw.text((0, 0), text, (0, 0, 0), font = font)
-		self.image(image, x, y, angle = angle, clear = clear)
+		
+		if truetype:
+			draw.text((0, 0), text, (0, 0, 0), font = font)
+			image = image.crop(image.getbbox())
+			self.image(image, x, y, angle = angle, clear = clear)
+		else:
+			base_x, base_y = x, y
+			pixels = []
+			for y in range(height):
+				if len(pixels) <= y:
+					pixels.append([])
+				for char in characters:
+					char_width = max([len(line) for line in char])
+					try:
+						line = char[y]
+					except IndexError:
+						line = [0] * char_width
+					line = line + [0] * (char_width - len(line) + font_data['spacing'])
+					pixels[y] += line
+			for y, line in enumerate(pixels):
+				for x, value in enumerate(line):
+					self.pixel(base_x + x, base_y + y, clear = value if clear else not value)
 		
 		if self.auto_commit:
 			self.display.commit()
@@ -396,9 +433,9 @@ class DisplayDraw:
 		queue.append((x, y))
 		while queue:
 			x, y = queue.pop()
-			if x < 0 or x > self.display.columns or y < 0 or y > self.display.rows:
-				continue
 			if (x, y) in drawing_queue:
+				continue
+			if x < 0 or x >= self.display.columns or y < 0 or y >= self.display.rows:
 				continue
 			current_color = self.get_pixel(x, y)
 			if self.get_pixel(x, y) != stop_color:
@@ -450,8 +487,34 @@ class DisplayDraw:
 	def function_plot(self, func, left_x, right_x, base_y, y_scale, min_x, max_x, clear = False):
 		x_step = float(max_x - min_x) / float(right_x - left_x)
 		for i in range(right_x - left_x + 1):
+			prev_x_val = min_x + x_step * (i - 1)
 			x_val = min_x + x_step * i
-			self.pixel(left_x + i, base_y - int(round(func(x_val) * y_scale)), clear = clear)
+			self.line(left_x + i, base_y - int(round(func(prev_x_val) * y_scale)), left_x + i, base_y - int(round(func(x_val) * y_scale)), clear = clear)
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def qrcode(self, text, x, y, max_size, clear = False):
+		return
+		if not IMAGE:
+			raise RuntimeError("PIL is required to display QR codes, but it is not installed on your system.")
+		
+		code = qr.QRCode(1, qr.QRErrorCorrectLevel.L)
+		code.addData(text)
+		code.make()
+		image = code.makeImage()
+		width, height = image.size
+		
+		if width > max_size or height > max_size:
+			for i in range(max_size):
+				size = max_size - i
+				if divmod(width, size)[1] == 0:
+					image = image.resize((size, size))
+					break
+		
+		image.save("qr.png")
+		
+		self.image(image, x, y, condition = 'red > 100 or green > 100 or blue > 100', clear = clear)
 		
 		if self.auto_commit:
 			self.display.commit()
