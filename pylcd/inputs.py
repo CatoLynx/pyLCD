@@ -8,7 +8,7 @@ import time
 import tty
 
 class SystemInput:
-	def __init__(self, ui):
+	def __init__(self, ui = None):
 		self.buffer = []
 		self.in_seq = False
 		self.seq = []
