@@ -62,12 +62,23 @@ def main():
 			display.set_brightness(1023)
 		
 		display.clear()
-		draw.image("/home/pi/projects/pyLCD/dash.png", 'left', 'top')
-		draw.text("%i Tage" % days, ('center', 55, 127), -5, 21, "/home/pi/.fonts/truetype/times.ttf")
-		draw.text("%02i:%02i" % (hours, minutes), ('center', 55, 127), 15, 25, "/home/pi/.fonts/truetype/timesbd.ttf")
-		draw.text("das sind", ('center', 55, 127), 40, 9, "/home/pi/.fonts/truetype/arial.ttf")
-		draw.text("%i min" % (total_minutes), ('center', 55, 127), 50, 16, "/home/pi/.fonts/truetype/timesbd.ttf")
-		draw.analog_clock(30, 47, 16, hours, minutes, has_lines = False, fill = False, clear = False)
+		
+		#draw.analog_clock(30, 47, 16, hours, minutes, has_lines = False, fill = False, clear = False)
+		#draw.text("Es ist", ('center', 0, 56), 40, 9, "/home/pi/.fonts/truetype/arial.ttf")
+		draw.text(now.strftime("%H:%M"), ('center', 0, 56), 34, 20, "/home/pi/.fonts/truetype/timesbd.ttf")
+		draw.text(now.strftime("%d.%m.%y"), ('center', 0, 56), 52, 14, "/home/pi/.fonts/truetype/timesbd.ttf")
+		
+		draw.image("/home/pi/projects/pyLCD/ef20.png", 'left', 'top')
+		draw.text("%i Tage" % days, ('center', 58, 127), 1, 16, "/home/pi/.fonts/truetype/timesbd.ttf")
+		draw.text("%02i:%02i" % (hours, minutes), ('center', 58, 127), 19, 25, "/home/pi/.fonts/truetype/timesbd.ttf")
+		draw.text("das sind", ('center', 58, 127), 41, 9, "/home/pi/.fonts/truetype/arial.ttf")
+		draw.text("%i min" % (total_minutes), ('center', 58, 127), 51, 16, "/home/pi/.fonts/truetype/timesbd.ttf")
+		
+		draw.line(56, 0, 56, 64)
+		draw.line(57, 0, 57, 64)
+		draw.line(0, 31, 57, 31)
+		draw.line(0, 32, 57, 32)
+		
 		display.commit()
 		time_needed = (datetime.datetime.now() - now).total_seconds()
 		print "%.2f seconds needed to redraw" % time_needed
