@@ -2,11 +2,11 @@
 # See the LICENSE file for the full license.
 
 name = "pyLCD"
-version = "1.1.1"
+version = "1.1.2"
 description = "A library for controlling LCDs on various hardware backends"
 license = "AGPLv3"
 author = "Julian Metzler"
-author_email = "contact@mezgrman.de"
+author_email = "pylcd@mezgr.de"
 dependencies = []
 url = "https://github.com/Mezgrman/pyLCD"
 keywords = "library lcd display hd44780 ks0108 interface"

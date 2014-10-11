@@ -277,7 +277,7 @@ class DisplayDraw:
 	
 	def circle(self, center_x, center_y, radiuses, start = 0, stop = 360, fill = None, fill_kwargs = {}, clear = False):
 		RESOLUTION = 360
-		if type(radiuses) not in [list, tuple]:
+		if type(radiuses) not in (list, tuple):
 			radiuses = [radiuses]
 		interpolation_step_size = RESOLUTION / len(radiuses)
 		complete_radiuses = [0.0] * RESOLUTION
@@ -340,25 +340,25 @@ class DisplayDraw:
 		
 		x_min, x_max, y_min, y_max = 0, self.display.columns - 1, 0, self.display.rows - 1
 		
-		if type(x) in [list, tuple]:
+		if type(x) in (list, tuple):
 			x, x_min, x_max = x
 		
-		if type(y) in [list, tuple]:
+		if type(y) in (list, tuple):
 			y, y_min, y_max = y
 		
 		if x == 'left':
 			x = x_min
 		elif x == 'center':
-			x = x_min + (x_max - x_min - im_width) / 2
+			x = x_min + int(round((x_max - x_min - im_width + 1) / 2.0))
 		elif x == 'right':
-			x = x_min + x_max - im_width + 1
+			x = x_max - im_width + 1
 		
 		if y == 'top':
 			y = y_min
 		elif y == 'middle':
-			y = y_min + (y_max - y_min - im_height) / 2
+			y = y_min + int(round((y_max - y_min - im_height + 1) / 2.0))
 		elif y == 'bottom':
-			y = y_min + y_max - im_height + 1
+			y = y_max - im_height + 1
 		
 		for im_x in range(im_width):
 			for im_y in range(im_height):
@@ -385,15 +385,16 @@ class DisplayDraw:
 					font_data = json.loads(f.read())
 			except (IOError, ValueError):
 				raise RuntimeError("Failed to load font.")
+			
+			if type(text) != unicode:
+				text = text.decode('utf-8')
+			
 			characters = [font_data['characters'].get(char, font_data['characters']['dummy']) for char in text]
-			width = sum([max([len(line) for line in char]) for char in characters])
 			height = max([len(char) for char in characters])
-			size = (width, height)
-		
-		image = Image.new('RGBA', size, (0, 0, 0, 0))
-		draw = ImageDraw.Draw(image)
 		
 		if truetype:
+			image = Image.new('RGBA', size, (0, 0, 0, 0))
+			draw = ImageDraw.Draw(image)
 			draw.text((0, 0), text, (0, 0, 0), font = font)
 			image = image.crop(image.getbbox())
 			self.image(image, x, y, angle = angle, clear = clear)
@@ -403,17 +404,45 @@ class DisplayDraw:
 			for y in range(height):
 				if len(pixels) <= y:
 					pixels.append([])
-				for char in characters:
+				for idx, char in enumerate(characters):
 					char_width = max([len(line) for line in char])
 					try:
 						line = char[y]
 					except IndexError:
 						line = [0] * char_width
-					line = line + [0] * (char_width - len(line) + font_data['spacing'])
+					if idx < len(characters) - 1:
+						line = line + [0] * (char_width - len(line) + font_data['spacing'])
 					pixels[y] += line
+			
+			width = max([len(line) for line in pixels])
+			size = (width, height)
+			
+			x_min, x_max, y_min, y_max = 0, self.display.columns - 1, 0, self.display.rows - 1
+			
+			if type(base_x) in (list, tuple):
+				base_x, x_min, x_max = base_x
+			
+			if type(base_y) in (list, tuple):
+				base_y, y_min, y_max = base_y
+			
+			if base_x == 'left':
+				base_x = x_min
+			elif base_x == 'center':
+				base_x = x_min + int(round((x_max - x_min - width + 1) / 2.0))
+			elif base_x == 'right':
+				base_x = x_max - width + 1
+			
+			if base_y == 'top':
+				base_y = y_min
+			elif base_y == 'middle':
+				base_y = y_min + int(round((y_max - y_min - height + 1) / 2.0))
+			elif base_y == 'bottom':
+				base_y = y_max - height + 1
+			
 			for y, line in enumerate(pixels):
 				for x, value in enumerate(line):
-					self.pixel(base_x + x, base_y + y, clear = value if clear else not value)
+					if value:
+						self.pixel(base_x + x, base_y + y, clear = clear)
 		
 		if self.auto_commit:
 			self.display.commit()
@@ -518,3 +547,101 @@ class DisplayDraw:
 		
 		if self.auto_commit:
 			self.display.commit()
+	
+	def progress_bar(self, start_x, start_y, end_x, end_y, fraction, frame = True, vertical = False, fill = True, clear = False):
+		if vertical:
+			bar_end_x = end_x
+			bar_end_y = end_y + int(round(start_y - end_y) * fraction)
+		else:
+			bar_end_x = start_x + int(round(end_x - start_x) * fraction)
+			bar_end_y = end_y
+		
+		if frame:
+			self.rectangle(start_x, start_y, end_x, end_y, fill = False, clear = clear)
+		
+		self.rectangle(start_x, start_y, bar_end_x, bar_end_y, fill = fill, clear = clear)
+		
+		if self.auto_commit:
+			self.display.commit()
+	
+	def plot(self, start_x, start_y, end_x, end_y, points, range_x = None, range_y = None, x_axis = True, y_axis = True, connect = True, clear = False):
+		data_start_x = start_x
+		data_start_y = end_y
+		data_end_x = end_x
+		data_end_y = start_y
+		origin = [data_start_x, data_start_y]
+		
+		if type(points[0]) in (int, float):
+			points = [(x, value) for x, value in enumerate(points)]
+		
+		# Determine the axis ranges
+		if range_x is None:
+			range_x = [min([point[0] for point in points]), max([point[0] for point in points])]
+			if range_x[0] == range_x[1]:
+				range_x[0] -= 1
+				range_x[1] += 1
+				
+		if range_y is None:
+			range_y = [min([point[1] for point in points]), max([point[1] for point in points])]
+			if range_y[0] == range_y[1]:
+				range_y[0] -= 1
+				range_y[1] += 1
+		
+		# Draw the x axis in the correct positions if desired
+		# Determine the y position of the x axis
+		y_axis_step = (data_start_y - data_end_y) / float(range_y[1] - range_y[0])
+		origin[1] = data_start_y - int(round(-range_y[0] * y_axis_step))
+		if range_y[0] <= 0 <= range_y[1]:
+			# Zero lies in the y range, position the x axis somewhere in that range
+			x_axis_y = origin[1]
+		elif range_y[0] > 0:
+			# Zero lies below the y range
+			x_axis_y = end_y
+		elif range_y[1] < 0:
+			# Zero lies above the y range
+			x_axis_y = start_y
+		
+		if x_axis:
+			self.line(start_x, x_axis_y, end_x, x_axis_y)
+			
+			# Arrow head
+			#self.pixel(end_x - 1, x_axis_y - 1)
+			#self.pixel(end_x - 1, x_axis_y + 1)
+		
+		# Draw the y axis in the correct positions if desired
+		# Determine the x position of the y axis
+		x_axis_step = (data_end_x - data_start_x) / float(range_x[1] - range_x[0])
+		origin[0] = data_start_x + int(round(-range_x[0] * x_axis_step))
+		if range_x[0] <= 0 <= range_x[1]:
+			# Zero lies in the x range, position the y axis somewhere in that range
+			y_axis_x = origin[0]
+		elif range_x[0] > 0:
+			# Zero lies below the x range
+			y_axis_x = end_x
+		elif range_x[1] < 0:
+			# Zero lies above the x range
+			y_axis_x = start_x
+		
+		if y_axis:
+			self.line(y_axis_x, start_y, y_axis_x, end_y)
+			
+			# Arrow head
+			#self.pixel(end_x - 1, x_axis_y - 1)
+			#self.pixel(end_x - 1, x_axis_y + 1)
+		
+		# Draw the points
+		points.sort(key = lambda point: point[0])
+		
+		for index, point in enumerate(points):
+			x, y = point
+			x = int(round(origin[0] + x_axis_step * x))
+			y = int(round(origin[1] - y_axis_step * y))
+						
+			if connect:
+				if index < len(points) - 1:
+					next_x, next_y = points[index + 1]
+					next_x = int(round(origin[0] + x_axis_step * next_x))
+					next_y = int(round(origin[1] - y_axis_step * next_y))
+					self.line(x, y, next_x, next_y)
+			else:
+				self.pixel(x, y)
