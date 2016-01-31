@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2013 Julian Metzler
+# Copyright (C) 2013-2016 Julian Metzler
 # See the LICENSE file for the full license.
 
 """
@@ -31,16 +31,17 @@ PINMAP = {
 
 def main():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-i', '--image')
+	parser.add_argument('-i', '--image', type = str, required = True)
 	parser.add_argument('-x', '--x-pos', type = int, default = 0)
 	parser.add_argument('-y', '--y-pos', type = int, default = 0)
+	parser.add_argument('-t', '--threshold', type = int, default = 127)
 	args = parser.parse_args()
 	
 	display = pylcd.ks0108.Display(backend = pylcd.GPIOBackend, pinmap = PINMAP, debug = False)
 	draw = pylcd.ks0108.DisplayDraw(display)
 	display.commit(full = True)
 	display.clear()
-	draw.image(args.image, args.x_pos, args.y_pos)
+	draw.image(args.image, args.x_pos, args.y_pos, threshold = args.threshold)
 	display.commit()
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2013 Julian Metzler
+# Copyright (C) 2013-2016 Julian Metzler
 # See the LICENSE file for the full license.
 
 """
@@ -11,7 +11,6 @@ import math
 import os
 import re
 import time
-import warnings
 import PyQRNative as qr
 
 from copy import deepcopy
@@ -314,16 +313,14 @@ class DisplayDraw:
 		if self.auto_commit:
 			self.display.commit()
 	
-	def image(self, img, x, y, width = None, height = None, angle = 0, greyscale = False, condition = 'alpha > 127', clear = False):
+	def image(self, img, x, y, width = None, height = None, angle = 0, threshold = 127, clear = False):
 		if not IMAGE:
 			raise RuntimeError("PIL is required to display images, but it is not installed on your system.")
 		if isinstance(img, Image.Image):
 			im = img
 		else:
 			im = Image.open(img)
-		if greyscale:
-			im = im.convert("L")
-		im = im.convert("RGBA")
+		im = im.convert("L") # Convert to greyscale
 		
 		angle = divmod(angle, 360)[1]
 		if angle:
@@ -362,8 +359,8 @@ class DisplayDraw:
 		
 		for im_x in range(im_width):
 			for im_y in range(im_height):
-				red, green, blue, alpha = pixels[im_x, im_y]
-				exec("draw = %s" % condition.replace(";", "").replace("\n", ""))
+				level = pixels[im_x, im_y]
+				draw = level > threshold
 				if draw:
 					self.pixel(x + im_x, y + im_y, clear = clear)
 		
