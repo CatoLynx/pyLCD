@@ -35,13 +35,14 @@ def main():
 	parser.add_argument('-x', '--x-pos', type = int, default = 0)
 	parser.add_argument('-y', '--y-pos', type = int, default = 0)
 	parser.add_argument('-t', '--threshold', type = int, default = 127)
+	parser.add_argument('-a', '--angle', type = int, default = 0)
 	args = parser.parse_args()
 	
 	display = pylcd.ks0108.Display(backend = pylcd.GPIOBackend, pinmap = PINMAP, debug = False)
 	draw = pylcd.ks0108.DisplayDraw(display)
 	display.commit(full = True)
 	display.clear()
-	draw.image(args.image, args.x_pos, args.y_pos, threshold = args.threshold)
+	draw.image(args.image, args.x_pos, args.y_pos, threshold = args.threshold, angle = args.angle)
 	display.commit()
 
 if __name__ == "__main__":
